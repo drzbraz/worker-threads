@@ -2,7 +2,7 @@
 
 This project demonstrates the impact of using **Node.js Worker Threads** for CPU-intensive operations.
 
-Worker Threads allow JavaScript code to execute in parallel on multiple CPU cores, preventing the main event loop from being blocked by expensive computations. They are recommended for CPU-bound workloads, while asynchronous APIs remain the best option for I/O-bound operations. :contentReference[oaicite:0]{index=0}
+Worker Threads allow JavaScript code to execute in parallel on multiple CPU cores, preventing the main event loop from being blocked by expensive computations. They are recommended for CPU-bound workloads, while asynchronous APIs remain the best option for I/O-bound operations. 
 
 ---
 
