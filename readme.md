@@ -17,7 +17,7 @@ When the computation runs on the main thread:
 
 ### Result
 
-![Without Worker Threads](./images/without-worker-threads.png)
+![Without Worker Threads](./public/without-worker-threads.png)
 
 As shown in the benchmark, the server processes requests sequentially because the CPU-intensive task occupies the main thread.
 
@@ -34,7 +34,7 @@ When using Worker Threads:
 
 ### Result
 
-![With Worker Threads](./images/with-worker-threads.png)
+![With Worker Threads](./public/with-worker-threads.png)
 
 The benchmark shows that requests complete much faster because expensive computations are executed in parallel without blocking the Event Loop.
 
