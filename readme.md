@@ -64,7 +64,7 @@ Worker Threads are ideal for **CPU-bound tasks**, such as:
 - Machine Learning inference
 - Mathematical calculations
 
-They are **not recommended** for I/O-bound operations (database queries, HTTP requests, file system operations), since Node.js already handles these efficiently using its asynchronous event loop. :contentReference[oaicite:1]{index=1}
+They are **not recommended** for I/O-bound operations (database queries, HTTP requests, file system operations), since Node.js already handles these efficiently using its asynchronous event loop.
 
 ---
 
