@@ -1,80 +1,90 @@
-# Worker Threads Performance Comparison
+# 🛍️ Black Friday, 300 Million Orders, and a Frozen API
 
-This project demonstrates the impact of using **Node.js Worker Threads** for CPU-intensive operations.
+> A real-world demo of **Node.js Worker Threads**: how one CPU-heavy endpoint can freeze your entire API — and how to fix it.
 
-Worker Threads allow JavaScript code to execute in parallel on multiple CPU cores, preventing the main event loop from being blocked by expensive computations. They are recommended for CPU-bound workloads, while asynchronous APIs remain the best option for I/O-bound operations. 
+## The story
 
----
+It's the Monday after Black Friday. Your e-commerce API is happily serving customers when the finance team asks for the sales report: **300 million orders** need to be aggregated — total revenue, average ticket, biggest order.
 
-## Without Worker Threads
+A developer adds a `/sales-report` endpoint that crunches the numbers... on the main thread.
 
-When the computation runs on the main thread:
+Suddenly, **the whole store goes down**. Not because of traffic. Not because of the database. Because Node.js runs JavaScript on a **single thread**, and while that report is being computed, the Event Loop can't do anything else — not even answer `/health`.
 
-- The Event Loop is blocked until the task finishes.
-- Incoming HTTP requests must wait.
-- The application becomes less responsive under heavy CPU load.
-- Throughput decreases significantly as concurrent requests increase.
+## Try it yourself
 
-### Result
+```bash
+npm install
+npm start
+```
 
-![Without Worker Threads](./public/without-worker-threads.png)
+**1. The store works fine:**
 
-As shown in the benchmark, the server processes requests sequentially because the CPU-intensive task occupies the main thread.
+```bash
+curl http://localhost:3000/health
+# instant: {"status":"ok","message":"store is up, customers are buying 🛒"}
+```
 
----
+**2. Ask for the report on the main thread... and try `/health` in another terminal:**
 
-## With Worker Threads
+```bash
+curl http://localhost:3000/sales-report/blocking   # terminal 1
+curl http://localhost:3000/health                  # terminal 2 — HANGS 😱
+```
 
-When using Worker Threads:
+Every customer request is stuck behind the report. The API is effectively down.
 
-- CPU-intensive work is delegated to background threads.
-- The main thread remains available to receive new requests.
-- Multiple CPU cores can be utilized.
-- Overall responsiveness and scalability improve considerably.
+**3. Same report, but on a Worker Thread:**
 
-### Result
+```bash
+curl http://localhost:3000/sales-report            # terminal 1
+curl http://localhost:3000/health                  # terminal 2 — instant 🚀
+```
 
-![With Worker Threads](./public/with-worker-threads.png)
+The heavy computation runs on a background thread. The Event Loop stays free and customers never notice.
 
-The benchmark shows that requests complete much faster because expensive computations are executed in parallel without blocking the Event Loop.
+**4. Bonus — split the work across 4 workers:**
 
----
+```bash
+npm run start:parallel
+curl http://localhost:3000/sales-report
+```
 
-## Performance Comparison
+The 300 million orders are divided into chunks, processed **in parallel on multiple CPU cores**, and merged. Same result, roughly **2x faster** on this machine (~5s → ~2.5s), and still non-blocking.
 
-| Without Worker Threads | With Worker Threads |
-| ---------------------- | ------------------- |
-| Main thread blocked | Main thread remains responsive |
-| Sequential CPU execution | Parallel CPU execution |
-| Poor scalability | Better scalability |
-| Lower throughput | Higher throughput |
-| Higher response time | Lower response time |
+## Benchmark
 
----
+| | Without Worker Threads | With Worker Threads |
+| --- | --- | --- |
+| Event Loop | Blocked | Free |
+| `/health` during report | Hangs | Instant |
+| CPU usage | 1 core | All cores (parallel version) |
+| Customer experience | Store "down" | Business as usual |
 
-## When Should You Use Worker Threads?
+Real run — same 300 million orders, same totals: **~5.3s** on a single worker thread vs **~2.4s** split across 4 parallel workers:
 
-Worker Threads are ideal for **CPU-bound tasks**, such as:
+![Single worker vs 4 parallel workers](./public/test-results.png)
 
-- Image processing
-- Video transcoding
-- Cryptography
-- Data compression
-- Large JSON parsing
-- Machine Learning inference
-- Mathematical calculations
+## When should you reach for Worker Threads?
 
-They are **not recommended** for I/O-bound operations (database queries, HTTP requests, file system operations), since Node.js already handles these efficiently using its asynchronous event loop.
+Worker Threads are for **CPU-bound** work:
 
----
+- 📊 Report generation / data aggregation (this demo)
+- 🖼️ Image resizing & processing
+- 🔐 Password hashing, encryption
+- 🗜️ Compression
+- 📄 Parsing huge CSV/JSON files
+- 🤖 ML inference
 
-## Conclusion
+They are **not** for I/O-bound work (database queries, HTTP calls, file reads) — Node's async Event Loop already handles those brilliantly without extra threads.
 
-This benchmark clearly demonstrates that **Worker Threads significantly improve performance for CPU-intensive workloads** by moving heavy computation away from the main thread.
+> **Rule of thumb:** if the task *waits*, use async I/O. If the task *computes*, use a Worker Thread.
 
-The result is:
+## Project structure
 
-- ✅ Better application responsiveness
-- ✅ Improved throughput
-- ✅ Lower request latency
-- ✅ More efficient utilization of multi-core processors
+```
+analytics.js            # the CPU-heavy "crunch the orders" logic (shared)
+index.js                # API: blocking vs single worker thread
+worker.js               # worker that processes the full dataset
+index-four-workers.js   # API: dataset split across 4 parallel workers
+four-workers.js         # worker that processes one chunk of the dataset
+```

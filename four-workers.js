@@ -1,8 +1,8 @@
-const {workerData, parentPort} = require("worker_threads")
+const { workerData, parentPort } = require('worker_threads')
+const { processOrders } = require('./analytics')
 
-let counter=0
-for (let index = 0; index < 20_000_000_000 / workerData.thread_count; index++) {
-    counter++    
-}
+// Each worker crunches its own slice of the Black Friday orders.
+const { startId, count } = workerData
+const report = processOrders(startId, count)
 
-parentPort.postMessage(counter)
+parentPort.postMessage(report)

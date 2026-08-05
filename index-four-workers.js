@@ -1,47 +1,66 @@
 const express = require('express')
 const { Worker } = require('worker_threads')
-const app  = express()
+const os = require('os')
+const { TOTAL_ORDERS, formatReport } = require('./analytics')
+
+const app = express()
 const port = 3000
 
-const THREAD_COUNT = 4
+// One worker per CPU core (capped at 4 for the demo).
+const THREAD_COUNT = Math.min(4, os.availableParallelism())
 
-
-app.get('/non-blocking/', (req,res)=>{
-    res.status(200).send('page is non blocking')
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', message: 'store is up, customers are buying 🛒' })
 })
 
-function createWorker(){
-    return new Promise((resolve, reject)=>{
+function createWorker(startId, count) {
+    return new Promise((resolve, reject) => {
         const worker = new Worker('./four-workers.js', {
-            workerData: {
-                thread_count: THREAD_COUNT
-            }
+            workerData: { startId, count }
         })
 
-        worker.on("message", (data) => {
-            resolve(data)
-        })
-    
-        worker.on("error", (error) => {
-            reject(`an error occured: ${error}`)
-        })
-
+        worker.on('message', resolve)
+        worker.on('error', reject)
     })
 }
 
-app.get('/blocking/', async (req,res)=>{
+// ✅✅ THE UPGRADE: instead of one worker crunching all 300 million
+// orders alone, we split the dataset into chunks and process them
+// in PARALLEL — one worker per CPU core. Same result, a fraction
+// of the time, and the event loop never blocks.
+app.get('/sales-report', async (req, res) => {
+    const start = performance.now()
+    const chunkSize = Math.ceil(TOTAL_ORDERS / THREAD_COUNT)
 
-    const workerPromisses = []
-
-    for (let index = 0; index < THREAD_COUNT; index++) {
-        workerPromisses.push(createWorker())        
+    const workers = []
+    for (let i = 0; i < THREAD_COUNT; i++) {
+        const startId = i * chunkSize
+        const count = Math.min(chunkSize, TOTAL_ORDERS - startId)
+        workers.push(createWorker(startId, count))
     }
 
-    const thread_results = await Promise.all(workerPromisses)
-    const total = thread_results[0] + thread_results[1] + thread_results[2] + thread_results[3]
-    res.status(200).send(`result is ${total}`)
+    try {
+        const chunks = await Promise.all(workers)
+
+        // Merge the partial reports into one.
+        const merged = chunks.reduce((acc, chunk) => ({
+            orders: acc.orders + chunk.orders,
+            revenue: acc.revenue + chunk.revenue,
+            biggestOrder: Math.max(acc.biggestOrder, chunk.biggestOrder),
+            flagged: acc.flagged + chunk.flagged
+        }), { orders: 0, revenue: 0, biggestOrder: 0, flagged: 0 })
+
+        res.status(200).json({
+            mode: `${THREAD_COUNT} worker threads in parallel (event loop free 🚀🚀)`,
+            ...formatReport(merged, performance.now() - start)
+        })
+    } catch (error) {
+        res.status(500).json({ error: String(error) })
+    }
 })
 
 app.listen(port, () => {
-    console.log(`App listening on port ${port}`)
+    console.log(`🛍️  Store API listening on port ${port} (${THREAD_COUNT} worker threads)`)
+    console.log(`   GET /health        -> should always be instant`)
+    console.log(`   GET /sales-report  -> dataset split across ${THREAD_COUNT} parallel workers`)
 })

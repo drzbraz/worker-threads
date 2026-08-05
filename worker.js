@@ -1,8 +1,7 @@
-const {parentPort} = require("worker_threads")
+const { parentPort } = require('worker_threads')
+const { TOTAL_ORDERS, processOrders } = require('./analytics')
 
-let counter=0
-for (let index = 0; index < 20_000_000_000; index++) {
-    counter++    
-}
+// Crunch the whole Black Friday dataset in a single background thread.
+const report = processOrders(0, TOTAL_ORDERS)
 
-parentPort.postMessage(counter)
+parentPort.postMessage(report)
