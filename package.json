@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "start:parallel": "node index-four-workers.js"
+    "start:parallel": "node index-four-workers.js",
+    "start:pool": "node index-worker-pool.js"
   },
   "repository": {
     "type": "git",

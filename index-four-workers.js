@@ -1,7 +1,7 @@
 const express = require('express')
 const { Worker } = require('worker_threads')
 const os = require('os')
-const { TOTAL_ORDERS, formatReport } = require('./analytics')
+const { TOTAL_ORDERS, mergeReports, formatReport } = require('./analytics')
 
 const app = express()
 const port = 3000
@@ -42,17 +42,9 @@ app.get('/sales-report', async (req, res) => {
     try {
         const chunks = await Promise.all(workers)
 
-        // Merge the partial reports into one.
-        const merged = chunks.reduce((acc, chunk) => ({
-            orders: acc.orders + chunk.orders,
-            revenue: acc.revenue + chunk.revenue,
-            biggestOrder: Math.max(acc.biggestOrder, chunk.biggestOrder),
-            flagged: acc.flagged + chunk.flagged
-        }), { orders: 0, revenue: 0, biggestOrder: 0, flagged: 0 })
-
         res.status(200).json({
             mode: `${THREAD_COUNT} worker threads in parallel (event loop free 🚀🚀)`,
-            ...formatReport(merged, performance.now() - start)
+            ...formatReport(mergeReports(chunks), performance.now() - start)
         })
     } catch (error) {
         res.status(500).json({ error: String(error) })

@@ -38,6 +38,15 @@ function processOrders(startId, count) {
     }
 }
 
+function mergeReports(chunks) {
+    return chunks.reduce((acc, chunk) => ({
+        orders: acc.orders + chunk.orders,
+        revenue: acc.revenue + chunk.revenue,
+        biggestOrder: Math.max(acc.biggestOrder, chunk.biggestOrder),
+        flagged: acc.flagged + chunk.flagged
+    }), { orders: 0, revenue: 0, biggestOrder: 0, flagged: 0 })
+}
+
 function formatReport({ orders, revenue, biggestOrder, flagged }, durationMs) {
     return {
         ordersProcessed: orders.toLocaleString('en-US'),
@@ -49,4 +58,4 @@ function formatReport({ orders, revenue, biggestOrder, flagged }, durationMs) {
     }
 }
 
-module.exports = { TOTAL_ORDERS, processOrders, formatReport }
+module.exports = { TOTAL_ORDERS, processOrders, mergeReports, formatReport }
