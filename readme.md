@@ -99,6 +99,12 @@ The lesson: **threads are not free and speedup is not linear. Measure — then m
 | CPU usage | 1 core | All cores (parallel version) |
 | Customer experience | Store "down" | Business as usual |
 
+Report time per strategy — same 300 million orders, same totals, median of 3 runs on this machine:
+
+![Report time per strategy](./public/benchmark.png)
+
+Note that the single worker takes the *same* ~5.3s as the blocking version — a worker thread doesn't make the computation faster, it just keeps the event loop free. The parallel versions are what cut the time to ~2.4s.
+
 Real run — same 300 million orders, same totals: **~5.3s** on a single worker thread vs **~2.4s** split across 4 parallel workers:
 
 ![Single worker vs 4 parallel workers](./public/test-results.png)
